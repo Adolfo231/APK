@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Fast DTV</string>
+    <string name="channels_header">Canais Digitais</string>
+    <string name="no_channels">Nenhum canal sintonizado na antena. Realize a busca de canais nas configurações da TV.</string>
+</resources>
