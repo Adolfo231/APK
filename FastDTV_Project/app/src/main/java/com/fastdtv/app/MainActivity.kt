@@ -1,4 +1,4 @@
-package com.fastdtv.app
+﻿package com.fastdtv.app
 
 import android.content.ComponentName
 import android.content.ContentValues
@@ -149,7 +149,6 @@ class MainActivity : AppCompatActivity() {
             TvContract.Channels.COLUMN_INPUT_ID,
             TvContract.Channels.COLUMN_DISPLAY_NUMBER,
             TvContract.Channels.COLUMN_DISPLAY_NAME,
-            TvContract.Channels.COLUMN_SERVICE_NAME,
             TvContract.Channels.COLUMN_DESCRIPTION
         )
 
@@ -167,9 +166,6 @@ class MainActivity : AppCompatActivity() {
                     val number = cursor.getString(cursor.getColumnIndexOrThrow(TvContract.Channels.COLUMN_DISPLAY_NUMBER)) ?: ""
 
                     var name = cursor.getString(cursor.getColumnIndexOrThrow(TvContract.Channels.COLUMN_DISPLAY_NAME))
-                    if (name.isNullOrBlank()) {
-                        name = cursor.getString(cursor.getColumnIndexOrThrow(TvContract.Channels.COLUMN_SERVICE_NAME))
-                    }
                     if (name.isNullOrBlank()) {
                         name = cursor.getString(cursor.getColumnIndexOrThrow(TvContract.Channels.COLUMN_DESCRIPTION))
                     }
@@ -305,7 +301,6 @@ class MainActivity : AppCompatActivity() {
                     put(TvContract.Channels.COLUMN_INPUT_ID, tunerId)
                     put(TvContract.Channels.COLUMN_DISPLAY_NUMBER, num)
                     put(TvContract.Channels.COLUMN_DISPLAY_NAME, name)
-                    put(TvContract.Channels.COLUMN_SERVICE_NAME, name)
                     put(TvContract.Channels.COLUMN_TYPE, TvContract.Channels.TYPE_OTHER)
                     put(TvContract.Channels.COLUMN_SERVICE_TYPE, TvContract.Channels.SERVICE_TYPE_AUDIO_VIDEO)
                     put(TvContract.Channels.COLUMN_BROWSABLE, 1)
