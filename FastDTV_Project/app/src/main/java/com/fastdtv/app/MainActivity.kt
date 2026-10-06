@@ -232,16 +232,14 @@ class MainActivity : AppCompatActivity() {
                 val setupIntent = info.createSetupIntent()?.apply {
                     putExtra(TvInputInfo.EXTRA_INPUT_ID, info.id)
                 }
-                if (setupIntent != null && canResolve(setupIntent)) {
-                    startActivity(setupIntent)
+                if (setupIntent != null && tryStartActivity(setupIntent)) {
                     return
                 }
 
                 val settingsIntent = info.createSettingsIntent()?.apply {
                     putExtra(TvInputInfo.EXTRA_INPUT_ID, info.id)
                 }
-                if (settingsIntent != null && canResolve(settingsIntent)) {
-                    startActivity(settingsIntent)
+                if (settingsIntent != null && tryStartActivity(settingsIntent)) {
                     return
                 }
             }
@@ -259,13 +257,8 @@ class MainActivity : AppCompatActivity() {
         )
 
         for (intent in systemIntents) {
-            if (canResolve(intent)) {
-                try {
-                    startActivity(intent)
-                    return
-                } catch (e: Exception) {
-                    // continue fallback
-                }
+            if (tryStartActivity(intent)) {
+                return
             }
         }
 
@@ -277,8 +270,13 @@ class MainActivity : AppCompatActivity() {
         ).show()
     }
 
-    private fun canResolve(intent: Intent): Boolean {
-        return packageManager.queryIntentActivities(intent, 0).isNotEmpty()
+    private fun tryStartActivity(intent: Intent): Boolean {
+        return try {
+            startActivity(intent)
+            true
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private fun registerDefaultDtvChannels() {
