@@ -6,8 +6,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.fastdtv.app.databinding.ItemChannelBinding
 
 class ChannelAdapter(
-    private val channels: List<ChannelItem>,
-    private val onChannelClick: (Int) -> Unit
+    private var channels: List<ChannelItem>,
+    private val onChannelClick: (ChannelItem) -> Unit
 ) : RecyclerView.Adapter<ChannelAdapter.ChannelViewHolder>() {
 
     inner class ChannelViewHolder(val binding: ItemChannelBinding) :
@@ -15,8 +15,8 @@ class ChannelAdapter(
         init {
             binding.root.setOnClickListener {
                 val position = bindingAdapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    onChannelClick(position)
+                if (position != RecyclerView.NO_POSITION && position in channels.indices) {
+                    onChannelClick(channels[position])
                 }
             }
         }
@@ -38,4 +38,9 @@ class ChannelAdapter(
     }
 
     override fun getItemCount(): Int = channels.size
+
+    fun updateList(newList: List<ChannelItem>) {
+        channels = newList
+        notifyDataSetChanged()
+    }
 }
