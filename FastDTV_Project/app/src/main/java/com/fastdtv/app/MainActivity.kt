@@ -165,7 +165,7 @@ class MainActivity : AppCompatActivity() {
                     val id = cursor.getLong(cursor.getColumnIndexOrThrow(TvContract.Channels._ID))
                     var inputId = cursor.getString(cursor.getColumnIndexOrThrow(TvContract.Channels.COLUMN_INPUT_ID)) ?: ""
                     val number = cursor.getString(cursor.getColumnIndexOrThrow(TvContract.Channels.COLUMN_DISPLAY_NUMBER)) ?: ""
-                    
+
                     var name = cursor.getString(cursor.getColumnIndexOrThrow(TvContract.Channels.COLUMN_DISPLAY_NAME))
                     if (name.isNullOrBlank()) {
                         name = cursor.getString(cursor.getColumnIndexOrThrow(TvContract.Channels.COLUMN_SERVICE_NAME))
@@ -198,11 +198,11 @@ class MainActivity : AppCompatActivity() {
             binding.btnEmptyScan.requestFocus()
         } else {
             binding.emptyStateContainer.visibility = View.GONE
-            
+
             val savedId = prefs.getLong(PREF_LAST_CHANNEL_ID, -1L)
             val savedIndex = allChannels.indexOfFirst { it.id == savedId }
             currentIndex = if (savedIndex != -1) savedIndex else 0
-            
+
             tuneChannelImmediate(currentIndex)
         }
     }
@@ -283,7 +283,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun registerDefaultDtvChannels() {
         val tunerId = primaryTunerInputId ?: "com.android.tv/.TvInputService"
-        
+
         val defaultChannels = listOf(
             Pair("2.1", "TV Cultura HD"),
             Pair("4.1", "SBT HD"),
@@ -300,7 +300,6 @@ class MainActivity : AppCompatActivity() {
             Pair("44.1", "RIT TV")
         )
 
-        var insertedCount = 0
         for ((num, name) in defaultChannels) {
             val exists = allChannels.any { it.displayNumber == num }
             if (!exists) {
@@ -316,7 +315,6 @@ class MainActivity : AppCompatActivity() {
                 }
                 try {
                     contentResolver.insert(TvContract.Channels.CONTENT_URI, values)
-                    insertedCount++
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
