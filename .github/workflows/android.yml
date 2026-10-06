@@ -24,12 +24,21 @@ jobs:
       with:
         gradle-version: '8.5'
 
+    - name: Aceitar Licenças e Configurar SDK
+      run: |
+        yes | sdkmanager --licenses || true
+        if [ -d "FastDTV_Project" ]; then
+          echo "sdk.dir=$ANDROID_HOME" > FastDTV_Project/local.properties
+        else
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+        fi
+
     - name: Compilar APK
       run: |
         if [ -d "FastDTV_Project" ]; then
           cd FastDTV_Project
         fi
-        gradle assembleDebug --stacktrace
+        gradle assembleDebug
 
     - name: Disponibilizar APK para Download
       uses: actions/upload-artifact@v4
