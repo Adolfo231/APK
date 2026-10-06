@@ -39,19 +39,39 @@
             android:textColor="@color/text_secondary"
             android:textSize="15sp" />
 
-        <Button
-            android:id="@+id/btnEmptyScan"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            android:backgroundTint="@color/accent_green"
-            android:focusable="true"
-            android:paddingHorizontal="24dp"
-            android:paddingVertical="12dp"
-            android:text="🔍 Buscar Canais da Antena"
-            android:textColor="@color/text_white"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnEmptyScan"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:backgroundTint="@color/accent_green"
+                android:focusable="true"
+                android:paddingHorizontal="20dp"
+                android:paddingVertical="12dp"
+                android:text="🔍 Abrir Busca da Antena"
+                android:textColor="@color/text_white"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnEmptyRestore"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:backgroundTint="#334155"
+                android:focusable="true"
+                android:paddingHorizontal="20dp"
+                android:paddingVertical="12dp"
+                android:text="📡 Carregar Canais DTV"
+                android:textColor="@color/text_white"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
 
     <!-- Banner Rápido de Informações (Top Right) -->
@@ -163,6 +183,17 @@
             android:text="📡 Fazer Nova Busca de Canais"
             android:textColor="@color/text_white"
             android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/btnGuideRestore"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:backgroundTint="#1E293B"
+            android:focusable="true"
+            android:text="⚡ Sincronizar Canais Digitais"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp" />
     </LinearLayout>
 
 </FrameLayout>

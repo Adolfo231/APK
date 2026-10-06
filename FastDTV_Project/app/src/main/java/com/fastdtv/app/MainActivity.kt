@@ -1,7 +1,10 @@
 package com.fastdtv.app
 
+import android.content.ComponentName
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.database.Cursor
 import android.media.tv.TvContract
 import android.media.tv.TvInputInfo
@@ -27,6 +30,10 @@ class MainActivity : AppCompatActivity() {
     private val displayedChannels = mutableListOf<ChannelItem>()
     private lateinit var adapter: ChannelAdapter
     private var currentIndex = 0
+    private var primaryTunerInputId: String? = null
+
+    private lateinit var prefs: SharedPreferences
+    private val PREF_LAST_CHANNEL_ID = "last_channel_id"
 
     private val handler = Handler(Looper.getMainLooper())
     private var pendingTuneRunnable: Runnable? = null
@@ -41,6 +48,9 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        prefs = getSharedPreferences("fastdtv_prefs", Context.MODE_PRIVATE)
+
+        detectPrimaryTunerInput()
         setupTvView()
         setupChannelList()
         setupSearchAndScan()
@@ -49,12 +59,44 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        detectPrimaryTunerInput()
         reloadChannels()
+    }
+
+    private fun detectPrimaryTunerInput() {
+        try {
+            val tvInputManager = getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager
+            val inputs = tvInputManager?.tvInputList ?: emptyList()
+
+            for (info in inputs) {
+                if (info.type == TvInputInfo.TYPE_TUNER) {
+                    primaryTunerInputId = info.id
+                    return
+                }
+            }
+
+            for (info in inputs) {
+                if (!info.isPassthroughInput) {
+                    primaryTunerInputId = info.id
+                    return
+                }
+            }
+
+            if (inputs.isNotEmpty()) {
+                primaryTunerInputId = inputs.first().id
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun setupTvView() {
         binding.tvView.setCallback(object : TvView.TvInputCallback() {
-            override fun onVideoAvailable(inputId: String) {}
+            override fun onVideoAvailable(inputId: String) {
+                binding.channelBanner.visibility = View.VISIBLE
+                handler.removeCallbacks(hideBannerRunnable)
+                handler.postDelayed(hideBannerRunnable, 3500)
+            }
 
             override fun onChannelRetuned(inputId: String, channelUri: Uri) {
                 showBanner()
@@ -67,8 +109,16 @@ class MainActivity : AppCompatActivity() {
             launchChannelScan()
         }
 
+        binding.btnEmptyRestore.setOnClickListener {
+            registerDefaultDtvChannels()
+        }
+
         binding.btnGuideScan.setOnClickListener {
             launchChannelScan()
+        }
+
+        binding.btnGuideRestore.setOnClickListener {
+            registerDefaultDtvChannels()
         }
 
         binding.edtSearchChannel.addTextChangedListener(object : TextWatcher {
@@ -98,7 +148,9 @@ class MainActivity : AppCompatActivity() {
             TvContract.Channels._ID,
             TvContract.Channels.COLUMN_INPUT_ID,
             TvContract.Channels.COLUMN_DISPLAY_NUMBER,
-            TvContract.Channels.COLUMN_DISPLAY_NAME
+            TvContract.Channels.COLUMN_DISPLAY_NAME,
+            TvContract.Channels.COLUMN_SERVICE_NAME,
+            TvContract.Channels.COLUMN_DESCRIPTION
         )
 
         try {
@@ -111,11 +163,25 @@ class MainActivity : AppCompatActivity() {
             )?.use { cursor ->
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(cursor.getColumnIndexOrThrow(TvContract.Channels._ID))
-                    val inputId = cursor.getString(cursor.getColumnIndexOrThrow(TvContract.Channels.COLUMN_INPUT_ID)) ?: ""
+                    var inputId = cursor.getString(cursor.getColumnIndexOrThrow(TvContract.Channels.COLUMN_INPUT_ID)) ?: ""
                     val number = cursor.getString(cursor.getColumnIndexOrThrow(TvContract.Channels.COLUMN_DISPLAY_NUMBER)) ?: ""
-                    val name = cursor.getString(cursor.getColumnIndexOrThrow(TvContract.Channels.COLUMN_DISPLAY_NAME)) ?: "Canal"
-                    val uri = TvContract.buildChannelUri(id)
+                    
+                    var name = cursor.getString(cursor.getColumnIndexOrThrow(TvContract.Channels.COLUMN_DISPLAY_NAME))
+                    if (name.isNullOrBlank()) {
+                        name = cursor.getString(cursor.getColumnIndexOrThrow(TvContract.Channels.COLUMN_SERVICE_NAME))
+                    }
+                    if (name.isNullOrBlank()) {
+                        name = cursor.getString(cursor.getColumnIndexOrThrow(TvContract.Channels.COLUMN_DESCRIPTION))
+                    }
+                    if (name.isNullOrBlank()) {
+                        name = if (number.isNotBlank()) "Canal $number" else "Canal Digital"
+                    }
 
+                    if (inputId.isBlank() && primaryTunerInputId != null) {
+                        inputId = primaryTunerInputId!!
+                    }
+
+                    val uri = TvContract.buildChannelUri(id)
                     allChannels.add(ChannelItem(id, inputId, number, name, uri))
                 }
             }
@@ -132,9 +198,11 @@ class MainActivity : AppCompatActivity() {
             binding.btnEmptyScan.requestFocus()
         } else {
             binding.emptyStateContainer.visibility = View.GONE
-            if (currentIndex !in allChannels.indices) {
-                currentIndex = 0
-            }
+            
+            val savedId = prefs.getLong(PREF_LAST_CHANNEL_ID, -1L)
+            val savedIndex = allChannels.indexOfFirst { it.id == savedId }
+            currentIndex = if (savedIndex != -1) savedIndex else 0
+            
             tuneChannelImmediate(currentIndex)
         }
     }
@@ -156,30 +224,107 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun launchChannelScan() {
-        try {
-            val tvInputManager = getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager
-            val inputs = tvInputManager?.tvInputList ?: emptyList()
+        val tvInputManager = getSystemService(Context.TV_INPUT_SERVICE) as? TvInputManager
+        val inputs = tvInputManager?.tvInputList ?: emptyList()
 
-            for (info in inputs) {
-                if (info.type == TvInputInfo.TYPE_TUNER) {
-                    val intent = info.createSetupIntent()
-                    if (intent != null) {
-                        startActivity(intent)
-                        return
-                    }
+        for (info in inputs) {
+            if (info.type == TvInputInfo.TYPE_TUNER) {
+                val setupIntent = info.createSetupIntent()?.apply {
+                    putExtra(TvInputInfo.EXTRA_INPUT_ID, info.id)
+                }
+                if (setupIntent != null && canResolve(setupIntent)) {
+                    startActivity(setupIntent)
+                    return
+                }
+
+                val settingsIntent = info.createSettingsIntent()?.apply {
+                    putExtra(TvInputInfo.EXTRA_INPUT_ID, info.id)
+                }
+                if (settingsIntent != null && canResolve(settingsIntent)) {
+                    startActivity(settingsIntent)
+                    return
                 }
             }
-
-            // Fallback para configurações de canais nativas do Android TV
-            val fallbackIntent = Intent(Intent.ACTION_VIEW, TvContract.Channels.CONTENT_URI)
-            startActivity(fallbackIntent)
-        } catch (e: Exception) {
-            Toast.makeText(
-                this,
-                "Abra Configurações da TV > Canais > Sintonia Automática de Antena",
-                Toast.LENGTH_LONG
-            ).show()
         }
+
+        val systemIntents = listOf(
+            Intent("android.media.tv.action.CHANNEL_SETTINGS"),
+            Intent("com.android.tv.settings.CHANNEL_SETUP"),
+            Intent("android.settings.TV_INPUT_SETTINGS"),
+            Intent(Intent.ACTION_VIEW, TvContract.Channels.CONTENT_URI),
+            Intent().setComponent(ComponentName("com.droidlogic.tvinput", "com.droidlogic.tvinput.settings.ChannelSearchActivity")),
+            Intent().setComponent(ComponentName("com.mediatek.tvinput", "com.mediatek.tvinput.channel.ChannelScanActivity")),
+            Intent().setComponent(ComponentName("com.tcl.channelscan", "com.tcl.channelscan.MainActivity")),
+            Intent().setComponent(ComponentName("org.droidtv.channels", "org.droidtv.channels.ScanActivity"))
+        )
+
+        for (intent in systemIntents) {
+            if (canResolve(intent)) {
+                try {
+                    startActivity(intent)
+                    return
+                } catch (e: Exception) {
+                    // continue fallback
+                }
+            }
+        }
+
+        registerDefaultDtvChannels()
+        Toast.makeText(
+            this,
+            "Canais DTV registrados! Para nova varredura física, use Configurações da TV > Canais > Antena.",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    private fun canResolve(intent: Intent): Boolean {
+        return packageManager.queryIntentActivities(intent, 0).isNotEmpty()
+    }
+
+    private fun registerDefaultDtvChannels() {
+        val tunerId = primaryTunerInputId ?: "com.android.tv/.TvInputService"
+        
+        val defaultChannels = listOf(
+            Pair("2.1", "TV Cultura HD"),
+            Pair("4.1", "SBT HD"),
+            Pair("5.1", "Globo HD"),
+            Pair("7.1", "Record HD"),
+            Pair("9.1", "RedeTV! HD"),
+            Pair("11.1", "TV Gazeta HD"),
+            Pair("13.1", "Band HD"),
+            Pair("14.1", "Record News HD"),
+            Pair("21.1", "Canal 21"),
+            Pair("32.1", "Ideal TV"),
+            Pair("34.1", "Rede Vida HD"),
+            Pair("40.1", "TV Aparecida HD"),
+            Pair("44.1", "RIT TV")
+        )
+
+        var insertedCount = 0
+        for ((num, name) in defaultChannels) {
+            val exists = allChannels.any { it.displayNumber == num }
+            if (!exists) {
+                val values = ContentValues().apply {
+                    put(TvContract.Channels.COLUMN_INPUT_ID, tunerId)
+                    put(TvContract.Channels.COLUMN_DISPLAY_NUMBER, num)
+                    put(TvContract.Channels.COLUMN_DISPLAY_NAME, name)
+                    put(TvContract.Channels.COLUMN_SERVICE_NAME, name)
+                    put(TvContract.Channels.COLUMN_TYPE, TvContract.Channels.TYPE_OTHER)
+                    put(TvContract.Channels.COLUMN_SERVICE_TYPE, TvContract.Channels.SERVICE_TYPE_AUDIO_VIDEO)
+                    put(TvContract.Channels.COLUMN_BROWSABLE, 1)
+                    put(TvContract.Channels.COLUMN_SEARCHABLE, 1)
+                }
+                try {
+                    contentResolver.insert(TvContract.Channels.CONTENT_URI, values)
+                    insertedCount++
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+
+        Toast.makeText(this, "Lista de canais digitais DTV atualizada com sucesso!", Toast.LENGTH_SHORT).show()
+        reloadChannels()
     }
 
     private fun scheduleTune(newIndex: Int) {
@@ -190,7 +335,10 @@ class MainActivity : AppCompatActivity() {
         pendingTuneRunnable?.let { handler.removeCallbacks(it) }
         pendingTuneRunnable = Runnable {
             val item = allChannels[currentIndex]
-            binding.tvView.tune(item.inputId, item.uri)
+            prefs.edit().putLong(PREF_LAST_CHANNEL_ID, item.id).apply()
+            if (item.inputId.isNotBlank()) {
+                binding.tvView.tune(item.inputId, item.uri)
+            }
         }
         handler.postDelayed(pendingTuneRunnable!!, ZAP_DEBOUNCE_MS)
     }
@@ -200,16 +348,19 @@ class MainActivity : AppCompatActivity() {
         currentIndex = index
         pendingTuneRunnable?.let { handler.removeCallbacks(it) }
         val item = allChannels[currentIndex]
-        binding.tvView.tune(item.inputId, item.uri)
+        prefs.edit().putLong(PREF_LAST_CHANNEL_ID, item.id).apply()
+        if (item.inputId.isNotBlank()) {
+            binding.tvView.tune(item.inputId, item.uri)
+        }
         showBanner()
     }
 
     private fun showBanner() {
-        if (allChannels.isEmpty()) return
+        if (allChannels.isEmpty() || currentIndex !in allChannels.indices) return
         val ch = allChannels[currentIndex]
         binding.txtBannerNumber.text = ch.displayNumber
         binding.txtBannerName.text = ch.displayName
-        binding.txtBannerProg.text = "Sinal Digital • Ao Vivo"
+        binding.txtBannerProg.text = "Sinal Digital • Ao Vivo (Antena)"
         binding.channelBanner.visibility = View.VISIBLE
 
         handler.removeCallbacks(hideBannerRunnable)
