@@ -22,17 +22,20 @@ jobs:
     - name: Configurar Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Configurar Gradle
+    - name: Configurar Gradle 8.5
       uses: gradle/actions/setup-gradle@v3
       with:
         gradle-version: '8.5'
 
     - name: Compilar APK
-      working-directory: FastDTV_Project
-      run: gradle assembleDebug --stacktrace
+      run: |
+        if [ -d "FastDTV_Project" ]; then
+          cd FastDTV_Project
+        fi
+        gradle assembleDebug --stacktrace
 
     - name: Disponibilizar APK para Download
       uses: actions/upload-artifact@v4
       with:
         name: FastDTV-APK
-        path: FastDTV_Project/app/build/outputs/apk/debug/*.apk
+        path: "**/build/outputs/apk/debug/*.apk"
