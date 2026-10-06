@@ -24,14 +24,16 @@ jobs:
       with:
         gradle-version: '8.5'
 
-    - name: Aceitar Licenças e Configurar SDK
+    - name: Configurar Propriedades e AndroidX
       run: |
         yes | sdkmanager --licenses || true
+        TARGET_DIR="."
         if [ -d "FastDTV_Project" ]; then
-          echo "sdk.dir=$ANDROID_HOME" > FastDTV_Project/local.properties
-        else
-          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          TARGET_DIR="FastDTV_Project"
         fi
+        echo "sdk.dir=$ANDROID_HOME" > "$TARGET_DIR/local.properties"
+        echo "android.useAndroidX=true" > "$TARGET_DIR/gradle.properties"
+        echo "android.nonTransitiveRClass=true" >> "$TARGET_DIR/gradle.properties"
 
     - name: Compilar APK
       run: |
